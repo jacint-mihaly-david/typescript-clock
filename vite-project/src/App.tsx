@@ -7,12 +7,75 @@ import './App.css'
 function App() {
   const [breakLength, setBreakLength] = useState(5);
   const [sessionLength, setSessionLength] = useState(25);
-  const [timeLeft, setTimeLeft] = useState(sessionLength * 60);
+  // const [timeLeft, setTimeLeft] = useState(sessionLength * 60);
+  const timeLeft = useRef(sessionLength * 60);
+
+  const setTimeLeft = (time: number) => {
+    timeLeft.current = time;
+    renderTime();
+  };
+  
   const timerIsOn = useRef(false);
   const timerId = useRef(0);
+  const [timerLabel, setTimerLabel] = useState('Session');
+  const phase = useRef('session');
+  const [renderedTime, setRenderedTime] = useState(`25:00`);
 
-const startTimer = () => {
-  timerId.current = setInterval(() => setTimeLeft(prevTime => prevTime - 1), 1000)
+  const alarm = () => {
+  const audio = document.getElementById('beep') as HTMLMediaElement | null;
+  if (!audio) throw new Error('Can\'t find audio element when calling alarm()');
+  audio.play();
+  setTimeout(() => audio.pause(), 2000);
+  audio.currentTime = 0;
+  }
+
+  const resetAlarm = () => {
+    const audio = document.getElementById('beep') as HTMLMediaElement | null;
+    if (!audio) throw new Error('Can\'t find audio element when calling resetAlarm()');
+    audio.pause();
+    audio.currentTime = 0;
+  }
+
+const renderTime = () => {
+  console.log('timeLeft in renderTime():', timeLeft);
+  // const minutes = Math.floor((timeLeft / 60)).toString().padStart(2, '0');
+  const minutes = Math.floor((timeLeft.current / 60)).toString().padStart(2, '0');
+  const seconds = (timeLeft.current % 60).toString().padStart(2, '0');
+
+  setRenderedTime(`${minutes}:${seconds}`);
+};
+
+const startTimer = async () => {
+  timerId.current = setInterval(() => {
+    console.log('timeLeft:', timeLeft);
+    // if we run out of session time
+    // if (timeLeft === 0 && phase.current === 'session') {
+    if (timeLeft.current === 0 && phase.current === 'session') {
+      console.log('switching to break');
+      setTimeLeft(breakLength * 60);
+      setTimerLabel('Break');
+      phase.current = 'break';
+      renderTime();
+      alarm();
+    // if we run out of break time
+    // } else if (timeLeft === 0) {
+    } else if (timeLeft.current === 0 && phase.current === 'break') {
+      console.log('stopping timer');
+      // stopTimer();
+      setTimeLeft(sessionLength * 60);
+      setTimerLabel('Session');
+      phase.current = 'session';
+      renderTime();
+      alarm();
+      // TODO: play music
+    // if we are just counting down either session or break time
+    } else {
+      console.log('counting down');
+      // setTimeLeft(prevTime => prevTime - 1);
+      setTimeLeft(timeLeft.current - 1);
+      renderTime();
+    }
+  }, 1000)
 };
 
 const stopTimer = () => {
@@ -25,13 +88,6 @@ const timer = () => {
   if (timerIsOn.current) startTimer();
   else stopTimer();
 }
-
-const renderTime = () => {
-  const minutes = Math.floor((timeLeft / 60)).toString().padStart(2, '0');
-  const seconds = (timeLeft % 60).toString().padStart(2, '0');
-
-  return `${minutes}:${seconds}`;
-};
 
   return (
       <>
@@ -60,6 +116,7 @@ const renderTime = () => {
         timerIsOn.current = false;
         setSessionLength(prevLength => prevLength - 1);
         setTimeLeft((sessionLength - 1) * 60);
+        renderTime();
       }}>
       - session
       </button>
@@ -75,13 +132,15 @@ const renderTime = () => {
         timerIsOn.current = false;
         setSessionLength(prevLength => prevLength + 1);
         setTimeLeft((sessionLength + 1) * 60);
+        renderTime();
         }}>
       + session
       </button>
   <div id="break-length">{breakLength}</div>
   <div id="session-length">{sessionLength}</div> 
-    <div id="timer-label">Session</div>
-    <div id="time-left">{renderTime()}</div>
+    <div id="timer-label">{timerLabel}</div>
+    <div id="time-left">{renderedTime}</div>
+    <audio id='beep' src="https://raw.githubusercontent.com/freeCodeCamp/cdn/master/build/testable-projects-fcc/audio/BeepSound.wav"></audio>
     <button id="start_stop" onClick={timer}>
       start / stop
       </button>
@@ -91,6 +150,9 @@ const renderTime = () => {
       setBreakLength(5);
       setSessionLength(25);
       setTimeLeft(25 * 60);
+      setTimerLabel('Session');
+      phase.current = 'session';
+      resetAlarm();
     }}>
   reset
     </button>
